@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Virtuálna prehliadka</title>
+
+  <!-- Pannellum -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pannellum/2.5.6/pannellum.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pannellum/2.5.6/pannellum.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Jost:wght@300;400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --border: #2a2a2a;
+      --accent: #c9a96e;
+      --accent-dim: rgba(201,169,110,0.15);
+      --text: #e8e0d4;
+      --text-dim: #7a7169;
+      --radius: 4px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Jost', sans-serif;
+      font-weight: 300;
+      overflow: hidden;
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      z-index: 10;
+    }
+
+    .logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.35rem;
+      font-weight: 300;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+    }
+
+    .logo span { color: var(--text-dim); font-weight: 300; }
+
+    .header-meta {
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    /* ── Main viewer area ── */
+    .viewer-wrap {
+      position: relative;
+      overflow: hidden;
+    }
+
+    #panorama {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Pannellum overrides */
+    .pnlm-container { background: var(--bg) !important; }
+    .pnlm-ui .pnlm-compass { display: none; }
+
+    /* ── Floor plan panel ── */
+    .floorplan-panel {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      width: 180px;
+      background: rgba(13,13,13,0.88);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+      transition: opacity 0.3s;
+    }
+
+    .floorplan-header {
+      padding: 8px 12px;
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .floorplan-img-wrap {
+      position: relative;
+      padding: 12px;
+    }
+
+    .floorplan-img-wrap img {
+      width: 100%;
+      opacity: 0.7;
+      display: block;
+    }
+
+    /* Current room indicator dot on floorplan */
+    .room-dot {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(201,169,110,0.3);
+      transform: translate(-50%, -50%);
+      transition: all 0.4s ease;
+      top: 50%;
+      left: 50%;
+    }
+
+    /* ── Room info panel ── */
+    .info-panel {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      width: 220px;
+      background: rgba(13,13,13,0.88);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      padding: 16px 18px;
+    }
+
+    .info-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .info-room-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.3rem;
+      font-weight: 400;
+      color: var(--text);
+      margin-bottom: 10px;
+      line-height: 1.2;
+    }
+
+    .info-desc {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .info-divider {
+      width: 24px;
+      height: 1px;
+      background: var(--accent);
+      margin: 12px 0;
+      opacity: 0.5;
+    }
+
+    .info-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .tag {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid rgba(201,169,110,0.3);
+      border-radius: 2px;
+      padding: 3px 7px;
+    }
+
+    /* ── Controls hint ── */
+    .controls-hint {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-align: right;
+      line-height: 1.9;
+    }
+
+    /* ── Footer ── */
+    footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 28px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 0.65rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .footer-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ── Hotspot custom styles ── */
+    .pnlm-hotspot-base {
+      cursor: pointer;
+    }
+
+    .custom-hotspot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(201,169,110,0.15);
+      border: 1.5px solid var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: 14px;
+      transition: all 0.2s;
+      backdrop-filter: blur(4px);
+    }
+
+    .custom-hotspot:hover {
+      background: rgba(201,169,110,0.3);
+      transform: scale(1.1);
+    }
+
+    /* Info tooltip */
+    .pnlm-tooltip span {
+      font-family: 'Jost', sans-serif !important;
+      font-size: 0.7rem !important;
+      letter-spacing: 0.08em !important;
+      background: rgba(13,13,13,0.92) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--radius) !important;
+      padding: 6px 10px !important;
+      color: var(--text) !important;
+    }
+
+    /* ── Fade-in on load ── */
+    .viewer-wrap {
+      animation: fadeIn 0.8s ease both;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">VISTA <span>/ Bratislava</span></div>
+    <div class="header-meta">Virtuálna prehliadka · Demo</div>
+  </header>
+
+  <div class="viewer-wrap">
+    <div id="panorama"></div>
+
+    <!-- Room info -->
+    <div class="info-panel">
+      <div class="info-label">Aktuálna miestnosť</div>
+      <div class="info-room-name" id="room-name">Obývacia izba</div>
+      <div class="info-divider"></div>
+      <div class="info-desc" id="room-desc">
+        Priestranná obývacia izba s výhľadom na juh. Parketová podlaha, vysoké stropy.
+      </div>
+      <div style="margin-top: 12px;">
+        <div class="info-tags">
+          <span class="tag">32 m²</span>
+          <span class="tag">Juh</span>
+          <span class="tag">Parkety</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floor plan -->
+    <div class="floorplan-panel">
+      <div class="floorplan-header">Pôdorys</div>
+      <div class="floorplan-img-wrap">
+        <!-- Placeholder SVG floorplan -->
+        <svg viewBox="0 0 160 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;opacity:0.6;">
+          <rect x="4" y="4" width="152" height="112" rx="2" fill="none" stroke="#444" stroke-width="1.5"/>
+          <!-- Rooms outline -->
+          <rect x="4" y="4" width="90" height="70" fill="none" stroke="#555" stroke-width="1"/>
+          <rect x="94" y="4" width="62" height="70" fill="none" stroke="#555" stroke-width="1"/>
+          <rect x="4" y="74" width="70" height="42" fill="none" stroke="#555" stroke-width="1"/>
+          <rect x="74" y="74" width="82" height="42" fill="none" stroke="#555" stroke-width="1"/>
+          <!-- Labels -->
+          <text x="32" y="44" fill="#666" font-size="8" font-family="Jost,sans-serif">Obývačka</text>
+          <text x="104" y="38" fill="#666" font-size="8" font-family="Jost,sans-serif">Spálňa</text>
+          <text x="12" y="98" fill="#666" font-size="8" font-family="Jost,sans-serif">Kúpeľňa</text>
+          <text x="88" y="98" fill="#666" font-size="8" font-family="Jost,sans-serif">Kuchyňa</text>
+          <!-- Door gaps -->
+          <line x1="4" y1="40" x2="4" y2="52" stroke="var(--bg)" stroke-width="3"/>
+          <line x1="94" y1="4" x2="94" y2="18" stroke="var(--bg)" stroke-width="3"/>
+        </svg>
+        <div class="room-dot" id="room-dot" style="top:38%;left:35%"></div>
+      </div>
+    </div>
+
+    <!-- Controls hint -->
+    <div class="controls-hint">
+      Ťahaj pre otočenie<br>
+      Koliesko = zoom<br>
+      Klikni na hotspot
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-status">
+      <div class="status-dot"></div>
+      <span>Demo · 1 miestnosť</span>
+    </div>
+    <span>360° Virtuálna prehliadka</span>
+  </footer>
+
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────
+  // Sem príde tvoj config.json neskôr. Zatiaľ je to inline pre demo.
+  const config = {
+    rooms: {
+      obyvacka: {
+        name: "Obývacia izba",
+        desc: "Priestranná obývacia izba s výhľadom na juh. Parketová podlaha, vysoké stropy.",
+        tags: ["32 m²", "Juh", "Parkety"],
+        // Verejná demo 360° fotka (Pannellum sample)
+        panorama: "https://pannellum.org/images/alma.jpg",
+        floorDot: { top: "38%", left: "35%" },
+        hotspots: [
+          {
+            pitch: -10,
+            yaw: 60,
+            type: "info",
+            text: "Veľké okno s výhľadom na juh",
+            cssClass: "pnlm-hotspot-base"
+          },
+          {
+            pitch: -5,
+            yaw: -120,
+            type: "info",
+            text: "→ Kuchyňa",
+            cssClass: "pnlm-hotspot-base",
+            clickHandlerFunc: () => loadRoom('kuchyna')
+          }
+        ]
+      },
+      kuchyna: {
+        name: "Kuchyňa",
+        desc: "Moderná kuchyňa so spotrebičmi Bosch. Otvorený priestor prepojený s jedálňou.",
+        tags: ["18 m²", "Sever", "Dlažba"],
+        panorama: "https://pannellum.org/images/cerro-toco-0.jpg",
+        floorDot: { top: "82%", left: "72%" },
+        hotspots: [
+          {
+            pitch: 5,
+            yaw: 160,
+            type: "info",
+            text: "← Späť do obývačky",
+            cssClass: "pnlm-hotspot-base",
+            clickHandlerFunc: () => loadRoom('obyvacka')
+          },
+          {
+            pitch: -15,
+            yaw: -30,
+            type: "info",
+            text: "Kuchynská linka — Ikea Metod",
+          }
+        ]
+      }
+    }
+  };
+
+  // ── Viewer ──────────────────────────────────────────────────
+  let viewer = null;
+
+  function loadRoom(roomId) {
+    const room = config.rooms[roomId];
+    if (!room) return;
+
+    // Update info panel
+    document.getElementById('room-name').textContent = room.name;
+    document.getElementById('room-desc').textContent = room.desc;
+
+    // Update floor dot
+    const dot = document.getElementById('room-dot');
+    dot.style.top = room.floorDot.top;
+    dot.style.left = room.floorDot.left;
+
+    // Build Pannellum hotspots
+    const hotspots = room.hotspots.map((h, i) => ({
+      pitch: h.pitch,
+      yaw: h.yaw,
+      type: h.type || 'info',
+      text: h.text,
+      cssClass: 'custom-hs',
+      clickHandlerFunc: h.clickHandlerFunc || null,
+      id: `hs-${roomId}-${i}`
+    }));
+
+    if (viewer) {
+      viewer.destroy();
+    }
+
+    viewer = pannellum.viewer('panorama', {
+      type: 'equirectangular',
+      panorama: room.panorama,
+      autoLoad: true,
+      autoRotate: -2,
+      autoRotateInactivityDelay: 4000,
+      showControls: true,
+      showZoomCtrl: true,
+      showFullscreenCtrl: true,
+      compass: false,
+      hotSpots: hotspots,
+      hfov: 100,
+      minHfov: 50,
+      maxHfov: 120,
+      strings: {
+        loadButtonLabel: "Načítať prehliadku",
+        loadingLabel: "Načítavam…",
+        bylineLabel: "",
+        noPanoramaError: "Fotka sa nenašla.",
+        fileAccessError: "Nie je možné načítať %s.",
+        urlMissingError: "Chybajúca URL.",
+        sceneChangeError: "Nie je možné načítať scénu.",
+        notHotspotError: "Hotspot neexistuje."
+      }
+    });
+  }
+
+  // Start with first room
+  loadRoom('obyvacka');
+</script>
+</body>
+</html>
