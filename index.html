@@ -413,8 +413,83 @@
     }
   };
 
+  // ══════════════════════════════════════════════════════════════
+  // DEBUG MÓD — na produkciu nastav na FALSE
+  const DEBUG = true;
+  // ══════════════════════════════════════════════════════════════
+
   // ── Viewer ──────────────────────────────────────────────────
   let viewer = null;
+  let debugActive = false;
+
+  // Debug badge element
+  const debugBadge = (() => {
+    const el = document.createElement('div');
+    el.textContent = '⬤ DEBUG ON — klikni do panorámy';
+    Object.assign(el.style, {
+      position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)',
+      background: '#c9a96e', color: '#0d0d0d',
+      padding: '5px 14px', borderRadius: '3px',
+      fontSize: '0.68rem', letterSpacing: '0.12em', fontFamily: 'Jost,sans-serif',
+      fontWeight: '500', zIndex: '9999', display: 'none',
+      pointerEvents: 'none'
+    });
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  // Debug tooltip
+  const debugTooltip = (() => {
+    const el = document.createElement('div');
+    Object.assign(el.style, {
+      position: 'fixed', background: '#0d0d0d', color: '#c9a96e',
+      border: '1px solid #2a2a2a', borderRadius: '4px',
+      padding: '10px 14px', fontFamily: 'monospace', fontSize: '0.78rem',
+      lineHeight: '1.7', zIndex: '9999', display: 'none',
+      pointerEvents: 'none', minWidth: '200px'
+    });
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  function toggleDebug() {
+    if (!DEBUG) return;
+    debugActive = !debugActive;
+    debugBadge.style.display = debugActive ? 'block' : 'none';
+    document.getElementById('panorama').style.cursor = debugActive ? 'crosshair' : '';
+    if (!debugActive) debugTooltip.style.display = 'none';
+  }
+
+  function onPanoramaClick(e) {
+    if (!debugActive || !viewer) return;
+    const coords = viewer.mouseEventToCoords(e);
+    if (!coords) return;
+    const pitch = coords[0].toFixed(1);
+    const yaw   = coords[1].toFixed(1);
+
+    debugTooltip.innerHTML =
+      `<b>Hotspot súradnice:</b><br>` +
+      `pitch: <b>${pitch}</b><br>` +
+      `yaw: &nbsp; <b>${yaw}</b><br><br>` +
+      `<span style="color:#7a7169;font-size:0.7rem">Ctrl+C = kopírovať</span>`;
+    debugTooltip.style.display = 'block';
+
+    // Position near click but keep in viewport
+    const x = Math.min(e.clientX + 16, window.innerWidth - 220);
+    const y = Math.min(e.clientY + 16, window.innerHeight - 120);
+    debugTooltip.style.left = x + 'px';
+    debugTooltip.style.top  = y + 'px';
+
+    console.log(`pitch: ${pitch}, yaw: ${yaw}`);
+  }
+
+  // Key listener — D = toggle debug
+  document.addEventListener('keydown', e => {
+    if (e.key === 'd' || e.key === 'D') toggleDebug();
+  });
+
+  // Click listener on panorama container
+  document.getElementById('panorama').addEventListener('click', onPanoramaClick);
 
   function loadRoom(roomId) {
     const room = config.rooms[roomId];
